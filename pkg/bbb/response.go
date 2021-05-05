@@ -34,13 +34,49 @@ const (
 // Response interface
 type Response interface {
 	Marshal() ([]byte, error)
-	Merge(response Response) error
 
 	Header() http.Header
 	SetHeader(http.Header)
 
 	Status() int
 	SetStatus(int)
+}
+
+// A RawResponse contains just the blob received from
+// the server.
+type RawResponse struct {
+	data   []byte
+	header http.Header
+	status int
+}
+
+// Marshal returns the response data
+func (res *RawResponse) Marshal() ([]byte, error) {
+	return res.data, nil
+}
+
+// Header returns the response http header
+func (res *RawResponse) Header() http.Header {
+	if res.header == nil {
+		res.header = make(http.Header)
+		res.header.Add("Content-Type", "text/html")
+	}
+	return res.header
+}
+
+// SetHeader sets the http response header
+func (res *RawResponse) SetHeader(h http.Header) {
+	res.header = h
+}
+
+// Status returns the reponse status
+func (res *RawResponse) Status() int {
+	return res.status
+}
+
+// SetStatus sets thes response status
+func (res *RawResponse) SetStatus(s int) {
+	res.status = s
 }
 
 // A XMLResponse from the server
@@ -88,7 +124,7 @@ func (res *XMLResponse) Marshal() ([]byte, error) {
 }
 
 // Make a new default header for XML responses
-func (res *XMLResponse) makeDefaultHeader() http.Header {
+func makeDefaultHeader() http.Header {
 	header := make(http.Header)
 	header.Add("Content-Type", "application/xml")
 	return header
