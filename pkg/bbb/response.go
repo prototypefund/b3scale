@@ -45,14 +45,19 @@ type Response interface {
 // A RawResponse contains just the blob received from
 // the server.
 type RawResponse struct {
-	data   []byte
+	body   []byte
 	header http.Header
 	status int
 }
 
+// SetBody sets the RawResponse body
+func (res *RawResponse) SetBody(body []byte) {
+	res.body = body
+}
+
 // Marshal returns the response data
 func (res *RawResponse) Marshal() ([]byte, error) {
-	return res.data, nil
+	return res.body, nil
 }
 
 // Header returns the response http header
@@ -69,8 +74,11 @@ func (res *RawResponse) SetHeader(h http.Header) {
 	res.header = h
 }
 
-// Status returns the reponse status
+// Status returns the reponse status. Default is 200 OK.
 func (res *RawResponse) Status() int {
+	if res.status == 0 {
+		return http.StatusOK
+	}
 	return res.status
 }
 
@@ -123,17 +131,11 @@ func (res *XMLResponse) Marshal() ([]byte, error) {
 	return data, err
 }
 
-// Make a new default header for XML responses
-func makeDefaultHeader() http.Header {
-	header := make(http.Header)
-	header.Add("Content-Type", "application/xml")
-	return header
-}
-
 // Header returns the HTTP response headers
 func (res *XMLResponse) Header() http.Header {
 	if res.header == nil {
-		res.header = res.makeDefaultHeader()
+		res.header = make(http.Header)
+		res.header.Add("Content-Type", "application/xml")
 	}
 	return res.header
 }
@@ -207,9 +209,6 @@ type JoinResponse struct {
 	AuthToken    string `xml:"auth_token"`
 	SessionToken string `xml:"session_token"`
 	URL          string `xml:"url"`
-
-	// The join response might be a raw
-	raw []byte
 }
 
 // UnmarshalJoinResponse decodes the serialized XML data
@@ -217,28 +216,13 @@ func UnmarshalJoinResponse(data []byte) (*JoinResponse, error) {
 	res := &JoinResponse{}
 	err := xml.Unmarshal(data, res)
 	if err != nil {
-		res.XMLResponse = new(XMLResponse)
-		res.raw = data
+		return nil, err
 	}
 	return res, nil
 }
 
-// IsRaw returns true if the response could
-// not be decoded from XML data
-func (res *JoinResponse) IsRaw() bool {
-	return res.raw != nil
-}
-
-// SetRaw will set a raw content
-func (res *JoinResponse) SetRaw(data []byte) {
-	res.raw = data
-}
-
 // Marshal encodes a JoinResponse as XML
 func (res *JoinResponse) Marshal() ([]byte, error) {
-	if res.IsRaw() {
-		return res.raw, nil
-	}
 	return xml.Marshal(res)
 }
 
