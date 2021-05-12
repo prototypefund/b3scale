@@ -3,27 +3,11 @@ package bbb
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"net/http"
 )
 
-var (
-	// ErrCantBeMerged is the error when two responses
-	// of the same type can not be merged, e.g. when
-	// the data is not a collection.
-	ErrCantBeMerged = errors.New(
-		"responses of this type can not be merged")
-
-	// ErrMergeConflict will be returned when two
-	// responses differ in fields, where they should not.
-	// Eg. a successful and a failed return code
-	ErrMergeConflict = errors.New(
-		"responses have conflicting values")
-)
-
 const (
-
 	// RetSuccess is the success return code
 	RetSuccess = "SUCCESS"
 
@@ -99,32 +83,6 @@ type XMLResponse struct {
 	status int
 }
 
-// MergeXMLResponse is a specific merge
-func (res *XMLResponse) MergeXMLResponse(other *XMLResponse) error {
-	if res.Returncode != other.Returncode {
-		return ErrMergeConflict
-	}
-	if res.Message != "" && res.Message != other.Message {
-		return ErrMergeConflict
-	}
-	if res.MessageKey != "" && res.MessageKey != other.MessageKey {
-		return ErrMergeConflict
-	}
-
-	res.status = other.status
-	res.header = other.header
-	res.Message = other.Message
-	res.MessageKey = other.MessageKey
-	res.Version = other.Version
-	return nil
-}
-
-// Merge XMLResponses.
-// However, in general this should not be merged.
-func (res *XMLResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Marshal a XMLResponse to XML
 func (res *XMLResponse) Marshal() ([]byte, error) {
 	data, err := xml.Marshal(res)
@@ -174,11 +132,6 @@ func (res *CreateResponse) Marshal() ([]byte, error) {
 	return data, err
 }
 
-// Merge another response
-func (res *CreateResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Header returns the HTTP response headers
 func (res *CreateResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -226,11 +179,6 @@ func (res *JoinResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge another response
-func (res *JoinResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Header returns the HTTP response headers
 func (res *JoinResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -271,11 +219,6 @@ func (res *IsMeetingRunningResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge IsMeetingRunning responses
-func (res *IsMeetingRunningResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Header returns the HTTP response headers
 func (res *IsMeetingRunningResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -311,11 +254,6 @@ func UnmarshalEndResponse(data []byte) (*EndResponse, error) {
 // Marshal EndResponse to XML
 func (res *EndResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
-}
-
-// Merge EndResponses
-func (res *EndResponse) Merge(other Response) error {
-	return ErrCantBeMerged
 }
 
 // Header returns the HTTP response headers
@@ -358,11 +296,6 @@ func (res *GetMeetingInfoResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge GetMeetingInfoResponse
-func (res *GetMeetingInfoResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Header returns the HTTP response headers
 func (res *GetMeetingInfoResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -403,23 +336,6 @@ func (res *GetMeetingsResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge get meetings responses
-func (res *GetMeetingsResponse) Merge(other Response) error {
-	otherRes, ok := other.(*GetMeetingsResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-
-	// Check envelope
-	err := res.XMLResponse.MergeXMLResponse(otherRes.XMLResponse)
-	if err != nil {
-		return err
-	}
-	// Merge meetings lists by appending
-	res.Meetings = append(res.Meetings, otherRes.Meetings...)
-	return nil
-}
-
 // Header returns the HTTP response headers
 func (res *GetMeetingsResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -458,20 +374,6 @@ func UnmarshalGetRecordingsResponse(
 // Marshal a GetRecordingsResponse to XML
 func (res *GetRecordingsResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
-}
-
-// Merge another GetRecordingsResponse
-func (res *GetRecordingsResponse) Merge(other Response) error {
-	otherRes, ok := other.(*GetRecordingsResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-	err := res.XMLResponse.Merge(otherRes.XMLResponse)
-	if err != nil {
-		return err
-	}
-	res.Recordings = append(res.Recordings, otherRes.Recordings...)
-	return nil
 }
 
 // Header returns the HTTP response headers
@@ -519,27 +421,6 @@ func (res *PublishRecordingsResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge a PublishRecordingsResponse
-func (res *PublishRecordingsResponse) Merge(other Response) error {
-	// This is kind of meh... I guess this is mergable
-	// as it needs to be dispatched to other instances...
-	otherRes, ok := other.(*PublishRecordingsResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-	// Envelope
-	err := res.XMLResponse.Merge(otherRes.XMLResponse)
-	if err != nil {
-		return err
-	}
-	// Payload
-	if res.Published != otherRes.Published {
-		return ErrMergeConflict
-	}
-
-	return nil
-}
-
 // Header returns the HTTP response headers
 func (res *PublishRecordingsResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -582,24 +463,6 @@ func (res *DeleteRecordingsResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
 }
 
-// Merge a DeleteRecordingsResponse
-func (res *DeleteRecordingsResponse) Merge(other Response) error {
-	otherRes, ok := other.(*DeleteRecordingsResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-	// Envelope
-	err := res.XMLResponse.Merge(otherRes.XMLResponse)
-	if err != nil {
-		return err
-	}
-	// Payload
-	if res.Deleted != otherRes.Deleted {
-		return ErrMergeConflict
-	}
-	return nil
-}
-
 // Header returns the HTTP response headers
 func (res *DeleteRecordingsResponse) Header() http.Header {
 	return res.XMLResponse.Header()
@@ -640,24 +503,6 @@ func UnmarshalUpdateRecordingsResponse(
 // Marshal UpdateRecordingsResponse to XML
 func (res *UpdateRecordingsResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
-}
-
-// Merge a UpdateRecordingsResponse
-func (res *UpdateRecordingsResponse) Merge(other Response) error {
-	otherRes, ok := other.(*UpdateRecordingsResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-	// Envelope
-	err := res.XMLResponse.Merge(otherRes.XMLResponse)
-	if err != nil {
-		return err
-	}
-	// Payload
-	if res.Updated != otherRes.Updated {
-		return ErrMergeConflict
-	}
-	return nil
 }
 
 // Header returns the HTTP response headers
@@ -707,11 +552,6 @@ func (res *GetDefaultConfigXMLResponse) Marshal() ([]byte, error) {
 	return res.Config, nil
 }
 
-// Merge GetDefaultConfigXMLResponse
-func (res *GetDefaultConfigXMLResponse) Merge(other Response) error {
-	return ErrCantBeMerged
-}
-
 // Header returns the HTTP response headers
 func (res *GetDefaultConfigXMLResponse) Header() http.Header {
 	return res.Header()
@@ -750,11 +590,6 @@ func UnmarshalSetConfigXMLResponse(
 // Marshal encodes a SetConfigXMLResponse as XML
 func (res *SetConfigXMLResponse) Marshal() ([]byte, error) {
 	return xml.Marshal(res)
-}
-
-// Merge SetConfigXMLResponse
-func (res *SetConfigXMLResponse) Merge(other Response) error {
-	return ErrCantBeMerged
 }
 
 // Header returns the HTTP response headers
@@ -810,30 +645,6 @@ func (res *GetRecordingTextTracksResponse) Marshal() ([]byte, error) {
 	return json.Marshal(wrap)
 }
 
-// Merge GetRecordingTextTracksResponse
-func (res *GetRecordingTextTracksResponse) Merge(other Response) error {
-
-	otherRes, ok := other.(*GetRecordingTextTracksResponse)
-	if !ok {
-		return ErrCantBeMerged
-	}
-	// Envelope
-	if res.Returncode != otherRes.Returncode {
-		return ErrMergeConflict
-	}
-	if res.Message != "" && res.Message != otherRes.Message {
-		return ErrMergeConflict
-	}
-	if res.MessageKey != "" && res.MessageKey != otherRes.MessageKey {
-		return ErrMergeConflict
-	}
-	res.Message = otherRes.Message
-	res.MessageKey = otherRes.MessageKey
-	// Payload
-	res.Tracks = append(res.Tracks, otherRes.Tracks...)
-	return nil
-}
-
 // Header returns the HTTP response headers
 func (res *GetRecordingTextTracksResponse) Header() http.Header {
 	return res.header
@@ -881,11 +692,6 @@ func UnmarshalPutRecordingTextTrackResponse(
 func (res *PutRecordingTextTrackResponse) Marshal() ([]byte, error) {
 	wrap := &JSONResponse{Response: res}
 	return json.Marshal(wrap)
-}
-
-// Merge a put recording text track
-func (res *PutRecordingTextTrackResponse) Merge(other Response) error {
-	return ErrCantBeMerged
 }
 
 // Header returns the HTTP response headers
