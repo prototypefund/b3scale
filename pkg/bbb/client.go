@@ -48,7 +48,16 @@ func NewClient() *Client {
 }
 
 // Internal response decoding
-func unmarshalRequestResponse(req *Request, data []byte) (Response, error) {
+func unmarshalRequestResponse(req *Request, res *http.Response) (Response, error) {
+	// Read body
+	defer res.Body.Close()
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Recover from decode errors
+
 	switch req.Resource {
 	case ResourceJoin:
 		return UnmarshalJoinResponse(data)
@@ -114,13 +123,6 @@ func (c *Client) Do(ctx context.Context, req *Request) (Response, error) {
 
 	// Perform request
 	httpRes, err := c.conn.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-
-	// Read body
-	defer httpRes.Body.Close()
-	data, err := ioutil.ReadAll(httpRes.Body)
 	if err != nil {
 		return nil, err
 	}
